@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wingman IA - Fase 2 (Optimizada)</title>
+    <style>
+        /* --- ESTILOS --- */
+        :root { --bg: #120c0f; --panel: #1e1418; --primary: #ff4d6d; --text: #f8f9fa; --muted: #a0a0a0; }
+        body { background-color: var(--bg); color: var(--text); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .container { width: 100%; max-width: 500px; margin-bottom: 80px; }
+        .box { background: var(--panel); padding: 20px; border-radius: 15px; margin-bottom: 20px; border: 1px solid #331f26; }
+        input, textarea, select { width: 100%; padding: 12px; margin-top: 10px; background: #0d090b; color: var(--text); border: 1px solid #44222e; border-radius: 8px; box-sizing: border-box; font-family: inherit; }
+        button { width: 100%; padding: 15px; margin-top: 15px; background: linear-gradient(90deg, #ff4d6d, #ff758f); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { opacity: 0.9; transform: scale(1.02); }
+        .intensidades { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
+        .intensidades label { flex: 1; min-width: 30%; padding: 10px; text-align: center; background: #0d090b; border: 1px solid #44222e; border-radius: 8px; cursor: pointer; font-size: 14px; }
+        .intensidades input[type="radio"] { display: none; }
+        .intensidades input[type="radio"]:checked + span { color: var(--primary); font-weight: bold; }
+        .resultado { background: #0d090b; border-left: 4px solid var(--primary); padding: 15px; border-radius: 8px; margin-top: 15px; display: none; }
+        .semaforo { display: inline-block; width: 15px; height: 15px; border-radius: 50%; margin-right: 8px; }
+        .verde { background: #00ff88; box-shadow: 0 0 10px #00ff88; }
+        .amarillo { background: #ffcc00; box-shadow: 0 0 10px #ffcc00; }
+        .rojo { background: #ff3333; box-shadow: 0 0 10px #ff3333; }
+        .status-ia { font-size: 12px; color: var(--muted); text-align: center; margin-bottom: 10px; }
+        .lista-ajustes { list-style: none; padding: 0; }
+        .lista-ajustes li { background: #0d090b; padding: 10px; margin-top: 8px; border-radius: 8px; display: flex; justify-content: space-between; font-size: 14px; border: 1px solid #331f26;}
+
+        /* --- BOTÓN Y VENTANA FLOTANTE --- */
+        #btnLaboratorio { position: fixed; bottom: 25px; right: 25px; width: 65px; height: 65px; border-radius: 50%; background: linear-gradient(135deg, #ff4d6d, #d90429); color: white; font-size: 28px; border: none; box-shadow: 0 6px 15px rgba(217, 4, 41, 0.4); z-index: 9999; cursor: pointer; display: flex; justify-content: center; align-items: center; margin: 0; padding: 0; }
+        #ventanaLaboratorio { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(18, 12, 15, 0.95); z-index: 10000; padding: 20px; box-sizing: border-box; overflow-y: auto; backdrop-filter: blur(5px); }
+        .lab-contenido { max-width: 500px; margin: 0 auto; background: var(--panel); padding: 20px; border-radius: 15px; border: 1px solid #44222e; }
+        .lab-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #331f26; padding-bottom: 10px; }
+        .btn-cerrar { width: auto; padding: 5px 15px; margin: 0; background: transparent; color: var(--muted); font-size: 24px; border: none; }
+
+        /* --- CHIPS --- */
+        .adn-group { margin-bottom: 15px; }
+        .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+        .chip { padding: 8px 12px; background: #0d090b; border: 1px solid #44222e; border-radius: 20px; font-size: 12px; cursor: pointer; }
+        .chip.active { background: var(--primary); border-color: var(--primary); color: white; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 style="text-align:center; color:var(--primary);">🔥 Wingman IA Fase 2</h2>
+    <div id="statusIA" class="status-ia">Estado de la IA: <span style="color:orange;">Iniciando...</span></div>
+
+    <!-- CHAT PRINCIPAL -->
+    <div class="box">
+        <label>¿Qué te dijo ella?</label>
+        <input type="text" id="inputMensaje" placeholder="Ej: ¿Me extrañaste?">
+        
+        <label style="margin-top: 15px; display: block;">Tono de respuesta:</label>
+        <div class="intensidades" id="panelIntensidades">
+            <label><input type="radio" name="intensidad" value="Tierno" checked><span>🌸 Tierno</span></label>
+            <label><input type="radio" name="intensidad" value="Picaro"><span>😏 Pícaro</span></label>
+            <label><input type="radio" name="intensidad" value="Ardiente"><span>🔥 Ardiente</span></label>
+            <label><input type="radio" name="intensidad" value="Gracioso"><span>😂 Gracioso</span></label>
+            <label><input type="radio" name="intensidad" value="Misterioso"><span>🕵️ Misterioso</span></label>
+            <label><input type="radio" name="intensidad" value="Frio"><span>🧊 Frío</span></label>
+        </div>
+
+        <button onclick="generarRespuesta()" id="btnResponder">Responder</button>
+        <button onclick="traducirMensaje()" id="btnTraducir" style="background: #333; margin-top: 10px;">🔍 Traducir (¿Qué quiso decir?)</button>
+    </div>
+
+    <!-- RESULTADOS -->
+    <div class="box" id="cajaResultado" style="display: none;">
+        <div style="font-size: 14px; margin-bottom: 10px;">
+            <span id="semaforo" class="semaforo verde"></span> 
+            <span id="textoSemaforo">Analizando...</span>
+        </div>
+        <div class="resultado" id="textoRespuesta" style="display: block;"></div>
+        
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <button style="background: #333; font-size: 12px; margin: 0;" onclick="copiarRespuesta()">📋 Copiar</button>
+            <button style="background: #ff4d6d; font-size: 12px; margin: 0;" onclick="guardarFavorito()">⭐ Guardar en Favoritos</button>
+        </div>
+    </div>
+
+    <!-- FAVORITOS -->
+    <div class="box">
+        <h3>⭐ Tus Favoritos</h3>
+        <ul id="listaFavoritos" class="lista-ajustes"></ul>
+    </div>
+</div>
+
+<!-- BOTÓN Y VENTANA DEL LABORATORIO -->
+<button id="btnLaboratorio" onclick="pedirPin()" title="Abrir Laboratorio">🔒</button>
+
+<div id="ventanaLaboratorio">
+    <div class="lab-contenido">
+        <div class="lab-header">
+            <h2>🔒 Laboratorio Privado</h2>
+            <button class="btn-cerrar" onclick="cerrarLaboratorio()">✕</button>
+        </div>
+        
+        <!-- ADN -->
+        <div class="box">
+            <h3>🧬 Tu ADN</h3>
+            <div class="adn-group">
+                <label>Tu Estilo de Habla:</label>
+                <div class="chips" id="chipsEstilo">
+                    <div class="chip active" onclick="selectChip('estilo', 'Natural')">Natural</div>
+                    <div class="chip" onclick="selectChip('estilo', 'Formal')">Formal</div>
+                    <div class="chip" onclick="selectChip('estilo', 'Callejero')">Callejero</div>
+                    <div class="chip" onclick="selectChip('estilo', 'Poético')">Poético</div>
+                </div>
+            </div>
+            <div class="adn-group">
+                <label>Nombre de ella (Opcional):</label>
+                <input type="text" id="adnNombreElla" placeholder="Ej: Laura">
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
+                <span style="font-size: 14px;">No sonar desesperado</span>
+                <input type="checkbox" id="adnNoDesesperado" style="width: 20px; height: 20px; margin: 0;">
+            </div>
+            <button onclick="guardarADN()">Guardar ADN</button>
+        </div>
+
+        <!-- MODOS -->
+        <div class="box">
+            <h3>🎭 Modos Personalizados</h3>
+            <input type="text" id="nuevoModoNombre" placeholder="Nombre (Ej: Modo Poeta)">
+            <textarea id="nuevoModoInstruccion" placeholder="Instrucción..."></textarea>
+            <button onclick="guardarModo()">Agregar Modo</button>
+            <ul id="listaModos" class="lista-ajustes"></ul>
+        </div>
+
+        <!-- ZONA DE PELIGRO (BORRAR TODO) -->
+        <div class="box" style="border-color: #d90429;">
+            <h3 style="color: #d90429;">⚠️ Zona de Peligro</h3>
+            <p style="font-size: 12px; color: var(--muted);">Esto borrará todos tus modos, palabras y favoritos de este teléfono.</p>
+            <button class="btn-danger" onclick="borrarTodo()">🗑️ Borrar Todos los Datos</button>
+        </div>
+    </div>
+</div>
+
+<!-- IMPORTACIÓN DE LA IA LOCAL -->
+<script type="module">
+    import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+
+    let engine;
+    const statusDiv = document.getElementById('statusIA');
+    const PIN_SECRETO = "1234"; // ⚠️ CAMBIA ESTO POR TU PIN
+
+    // --- 1. INICIAR IA (Modelo Qwen 2.5 sugerido por Perplexity) ---
+    async function iniciarIA() {
+        try {
+            // CAMBIO DE MODELO: Usamos Qwen 2.5 1.5B en lugar de Llama
+            const selectedModel = "Qwen2.5-1.5B-Instruct-q4f32_1-MLC";
+            statusDiv.innerHTML = 'Descargando IA (Qwen 2.5)...';
+            
+            engine = await webllm.CreateMLCEngine(selectedModel, {
+                initProgressCallback: (p) => { statusDiv.innerHTML = p.text; }
+            });
+            statusDiv.innerHTML = '✅ IA Lista (Offline)';
+            cargarFavoritos();
+            cargarADN();
+        } catch (e) {
+            statusDiv.innerHTML = '❌ Error al cargar IA (Prueba recargando)';
+            console.error(e);
+        }
+    }
+    iniciarIA();
+
+    // --- 2. SEGURIDAD (PIN) ---
+    window.pedirPin = function() {
+        const pin = prompt("🔒 Ingresa tu PIN:");
+        if (pin === PIN_SECRETO) {
+            document.getElementById('ventanaLaboratorio').style.display = 'block';
+            cargarModos();
+        } else if (pin !== null) {
+            alert("PIN Incorrecto.");
+        }
+    }
+    window.cerrarLaboratorio = function() { document.getElementById('ventanaLaboratorio').style.display = 'none'; }
+
+    // --- 3. BORRAR TODO (Sugerencia de Perplexity) ---
+    window.borrarTodo = function() {
+        if(confirm("¿Estás seguro de que quieres borrar TODOS los modos, palabras y favoritos? Esto no se puede deshacer.")) {
+            localStorage.removeItem('misModos');
+            localStorage.removeItem('miDiccionario');
+            localStorage.removeItem('misFavoritos');
+            localStorage.removeItem('adnUsuario');
+            alert("Memoria borrada con éxito.");
+            cargarModos();
+            cargarFavoritos();
+            document.getElementById('adnNombreElla').value = "";
+            document.getElementById('adnNoDesesperado').checked = false;
+        }
+    }
+
+    // --- 4. ADN Y PERSONALIZACIÓN ---
+    window.selectChip = function(grupo, valor) {
+        document.querySelectorAll(`#chips${grupo.charAt(0).toUpperCase() + grupo.slice(1)} .chip`).forEach(c => c.classList.remove('active'));
+        event.target.classList.add('active');
+    }
+
+    window.guardarADN = function() {
+        const estilo = document.querySelector('#chipsEstilo .chip.active').innerText;
+        const nombre = document.getElementById('adnNombreElla').value;
+        const noDesesperado = document.getElementById('adnNoDesesperado').checked;
+        localStorage.setItem('adnUsuario', JSON.stringify({ estilo, nombre, noDesesperado }));
+        alert("ADN guardado.");
+    }
+
+    function cargarADN() {
+        const adn = JSON.parse(localStorage.getItem('adnUsuario'));
+        if (adn) {
+            document.getElementById('adnNombreElla').value = adn.nombre || '';
+            document.getElementById('adnNoDesesperado').checked = adn.noDesesperado || false;
+        }
+    }
+
+    // --- 5. MODOS ---
+    window.guardarModo = function() {
+        const n = document.getElementById('nuevoModoNombre').value;
+        const i = document.getElementById('nuevoModoInstruccion').value;
+        if(!n || !i) return alert("Llena ambos campos");
+        let modos = JSON.parse(localStorage.getItem('misModos')) || [];
+        modos.push({nombre: n, instruccion: i});
+        localStorage.setItem('misModos', JSON.stringify(modos));
+        document.getElementById('nuevoModoNombre').value = "";
+        document.getElementById('nuevoModoInstruccion').value = "";
+        cargarModos();
+    }
+
+    function cargarModos() {
+        const lista = document.getElementById('listaModos');
+        lista.innerHTML = "";
+        let modos = JSON.parse(localStorage.getItem('misModos')) || [];
+        modos.forEach((m, idx) => {
+            lista.innerHTML += `<li><span><b>${m.nombre}</b></span> <button onclick="borrarModo(${idx})" style="width:auto; padding:5px 10px; margin:0; background:#d90429; font-size:12px;">X</button></li>`;
+        });
+    }
+    window.borrarModo = function(idx) {
+        let modos = JSON.parse(localStorage.getItem('misModos')) || [];
+        modos.splice(idx, 1);
+        localStorage.setItem('misModos', JSON.stringify(modos));
+        cargarModos();
+    }
+
+    // --- 6. FAVORITOS ---
+    window.guardarFavorito = function() {
+        const texto = document.getElementById('textoRespuesta').innerText;
+        let favs = JSON.parse(localStorage.getItem('misFavoritos')) || [];
+        if(!favs.includes(texto)) {
+            favs.push(texto);
+            localStorage.setItem('misFavoritos', JSON.stringify(favs));
+            cargarFavoritos();
+            alert("¡Guardado!");
+        } else { alert("Ya está en favoritos."); }
+    }
+
+    function cargarFavoritos() {
+        const lista = document.getElementById('listaFavoritos');
+        lista.innerHTML = "";
+        let favs = JSON.parse(localStorage.getItem('misFavoritos')) || [];
+        if(favs.length === 0) lista.innerHTML = '<li style="justify-content:center; color:#666;">No hay favoritos aún.</li>';
+        favs.forEach((f, idx) => {
+            lista.innerHTML += `<li><span>${f}</span> <button onclick="borrarFavorito(${idx})" style="width:auto; padding:5px 10px; margin:0; background:#d90429; font-size:12px;">X</button></li>`;
+        });
+    }
+    window.borrarFavorito = function(idx) {
+        let favs = JSON.parse(localStorage.getItem('misFavoritos')) || [];
+        favs.splice(idx, 1);
+        localStorage.setItem('misFavoritos', JSON.stringify(favs));
+        cargarFavoritos();
+    }
+
+    // --- 7. GENERAR RESPUESTA ---
+    window.generarRespuesta = async function() {
+        if (!engine) return alert("La IA aún está cargando...");
+        const mensajeElla = document.getElementById('inputMensaje').value;
+        if (!mensajeElla) return alert("Escribe el mensaje.");
+
+        const intensidad = document.querySelector('input[name="intensidad"]:checked').value;
+        const btn = document.getElementById('btnResponder');
+        btn.innerText = "Pensando..."; btn.disabled = true;
+
+        let semaforoColor = "verde", semaforoTexto = "Alto interés.";
+        if (mensajeElla.length < 5 || mensajeElla === "ok") { semaforoColor = "rojo"; semaforoTexto = "Bajo interés."; }
+        else if (mensajeElla.includes("?")) { semaforoColor = "amarillo"; semaforoTexto = "Interés medio."; }
+
+        let prompt = `Eres un experto en seducción. `;
+        const adn = JSON.parse(localStorage.getItem('adnUsuario')) || {};
+        if (adn.nombre) prompt += `Ella se llama ${adn.nombre}. `;
+        if (adn.estilo) prompt += `Mi estilo es: ${adn.estilo}. `;
+        if (adn.noDesesperado) prompt += `IMPORTANTE: No suenes desesperado. `;
+
+        prompt += `Ella dijo: "${mensajeElla}". `;
+        let modos = JSON.parse(localStorage.getItem('misModos')) || [];
+        let modoCustom = modos.find(m => m.nombre.toLowerCase() === intensidad.toLowerCase());
+        if (modoCustom) prompt += `Estilo: ${modoCustom.instruccion}. `;
+        else prompt += `Tono: ${intensidad}. `;
+        prompt += `Responde solo con el mensaje a enviar.`;
+
+        try {
+            const reply = await engine.chat.completions.create({
+                messages: [{ role: "user", content: prompt }], temperature: 0.8, max_tokens: 100
+            });
+            document.getElementById('cajaResultado').style.display = 'block';
+            document.getElementById('semaforo').className = `semaforo ${semaforoColor}`;
+            document.getElementById('textoSemaforo').innerText = semaforoTexto;
+            document.getElementById('textoRespuesta').innerText = reply.choices[0].message.content.trim();
+        } catch (e) { alert("Error generando respuesta."); }
+        btn.innerText = "Responder"; btn.disabled = false;
+    }
+
+    // --- 8. TRADUCIR ---
+    window.traducirMensaje = async function() {
+        if (!engine) return alert("La IA aún está cargando...");
+        const mensajeElla = document.getElementById('inputMensaje').value;
+        if (!mensajeElla) return alert("Escribe el mensaje de ella.");
+
+        const btn = document.getElementById('btnTraducir');
+        btn.innerText = "Analizando..."; btn.disabled = true;
+
+        const prompt = `Analiza este mensaje de una chica: "${mensajeElla}". Dime en 2 líneas qué piensa realmente, si está interesada o si es una prueba. Sé directo.`;
+
+        try {
+            const reply = await engine.chat.completions.create({
+                messages: [{ role: "user", content: prompt }], temperature: 0.6, max_tokens: 100
+            });
+            document.getElementById('cajaResultado').style.display = 'block';
+            document.getElementById('semaforo').className = `semaforo amarillo`;
+            document.getElementById('textoSemaforo').innerText = "Análisis Psicológico:";
+            document.getElementById('textoRespuesta').innerText = reply.choices[0].message.content.trim();
+        } catch (e) { alert("Error al traducir."); }
+        btn.innerText = "🔍 Traducir (¿Qué quiso decir?)"; btn.disabled = false;
+    }
+
+    window.copiarRespuesta = function() {
+        navigator.clipboard.writeText(document.getElementById('textoRespuesta').innerText).then(() => alert("¡Copiado!"));
+    }
+</script>
+
+</body>
+      </html>
